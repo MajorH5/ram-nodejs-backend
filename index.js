@@ -4,10 +4,16 @@ const MailAgent = require('./lib/misc/mailAgent.js');
 const Verifier = require('./lib/misc/verifier.js');
 
 const express = require('express');
+const dotenv = require('dotenv');
+const https = require('https');
 const cors = require('cors');
+const fs = require('fs');
 const app = express();
 
-const PORT = 80;
+dotenv.config();
+
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const PORT = IS_PRODUCTION ? 443 : 80;
 
 app.use(express.json());
 app.use(cors());
@@ -137,7 +143,19 @@ app.get('/reset-password', (req, res) => {
 (async function () {
     await Database.connect();
 
-    app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-    });
+    if (IS_PRODUCTION) {
+        const options = {
+            key: fs.readFileSync('private.key'),
+            cert: fs.readFileSync('public.crt'),
+            ca: fs.readFileSync('publci.ca-bundle')
+        };
+
+        https.createServer(options, app).listen(PORT, () => {
+            console.log(`PRODUCTION: Server running on port ${PORT}`);
+        });
+    } else {
+        app.listen(PORT, () => {
+            console.log(`DEV: Server running on port ${PORT}`);
+        });
+    }
 })();
