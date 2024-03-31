@@ -1,0 +1,143 @@
+const UserDatabase = require('./lib/users/userDatabase.js');
+const Database = require('./lib/misc/database.js');
+const MailAgent = require('./lib/misc/mailAgent.js');
+const Verifier = require('./lib/misc/verifier.js');
+
+const express = require('express');
+const cors = require('cors');
+const app = express();
+
+const PORT = 80;
+
+app.use(express.json());
+app.use(cors());
+app.use(express.static('RotMG-Art-Maker/public'));
+
+app.get('/verify', async (req, res) => {
+    let { id } = req.query;
+
+    const validId = Verifier.validateVerificationToken(id)
+
+    if (validId !== true) {
+        res.status(400).send(validId);
+        return;
+    }
+
+    const result = await UserDatabase.verifyUser(id);
+
+    if (result.error) {
+        res.status(400).send(result.error);
+        return;
+    }
+
+    res.status(200).send('Account verified successfully! You may close this tab.');
+});
+
+app.post('/login', async (req, res) => {
+    const { email, password } = req.body;
+
+    const validationResults = [
+        Verifier.validateEmail(email),
+        Verifier.validatePassword(password)
+    ];
+
+    const errors = validationResults.filter(result => result !== true);
+
+    if (errors.length > 0) {
+        res.status(400).send({ error: errors[0] });
+        return;
+    }
+
+    const result = await UserDatabase.login(email, password);
+
+    if (result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.setHeader('Set-Cookie', `token=${result.token}; Secure; HttpOnly; SameSite=Strict`);
+    res.status(200).send(result);
+});
+
+app.post('/logout', async (req, res) => {
+    const { token } = req.body;
+
+    const result = await UserDatabase.logout(token);
+
+    if (result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.status(200).send({ message: 'Logged out successfully' });
+});
+
+app.post('/register', async (req, res) => {
+    const { username, email, password } = req.body;
+    const ip = req.socket.remoteAddress;
+
+    const validationResults = [
+        Verifier.validateUsername(username),
+        Verifier.validateEmail(email),
+        Verifier.validatePassword(password)
+    ];
+
+    const errors = validationResults.filter(result => result !== true);
+
+    if (errors.length > 0) {
+        res.status(400).send({ error: errors[0] });
+        return;
+    }
+    
+    if (await UserDatabase.emailExists(email)) {
+        res.status(400).send({ error: 'Email already exists'});
+        return;
+    }
+
+    if (await UserDatabase.usernameExists(username)) {
+        res.status(400).send({ error: 'Username already exists'});
+        return;
+    }
+
+    const createResult = await UserDatabase.createUser(username, email, password, ip);
+
+    if (createResult.error) {
+        res.status(400).send({ error: createResult.error });
+        return;
+    }
+
+    const tokenResult = await UserDatabase.createVerificationToken(email);
+
+    if (tokenResult.error) {
+        res.status(400).send({ error: tokenResult.error });
+        return;
+    }
+    
+    const loginResult = await UserDatabase.login(email, password);
+
+    if (loginResult.error) {
+        res.status(400).send({ error: loginResult.error });
+        return;
+    }
+    
+    MailAgent.sendMail('habibaina29@gmail.com', '[Action Required] RotMGArtMaker Verify your email', `Dear <b>${username}</b>,<br/><br/>Please verify your new account by clicking the link below:<br/><br/><a href="http://localhost:8080/verify?&id=${tokenResult.token}" target="_blank">Click here to verify your email address</a><br/><br/>`);
+    
+    res.setHeader('Set-Cookie', `token=${loginResult.token}; Secure; HttpOnly; SameSite=Strict`);
+    res.status(200).send(loginResult);
+});
+
+app.get('/forgot-password', (req, res) => {
+
+});
+
+app.get('/reset-password', (req, res) => {
+    
+});
+
+(async function () {
+    await Database.connect();
+
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+})();
