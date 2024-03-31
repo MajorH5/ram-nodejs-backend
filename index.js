@@ -146,7 +146,7 @@ app.get('/reset-password', (req, res) => {
         const options = {
             key: fs.readFileSync('private.key'),
             cert: fs.readFileSync('public.crt'),
-            ca: fs.readFileSync('publci.ca-bundle')
+            ca: fs.readFileSync('public.ca-bundle')
         };
 
         https.createServer(options, app).listen(PORT, () => {
