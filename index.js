@@ -154,6 +154,15 @@ app.get('/reset-password', (req, res) => {
         https.createServer(options, app).listen(PORT, () => {
             console.log(`PRODUCTION: Server running on port ${PORT}`);
         });
+
+        const httpRedirect = express();
+        httpRedirect.get('*', (req, res) => {
+            res.redirect(`https://${req.headers.host}${req.url}`);
+        });
+
+        httpRedirect.listen(80, () => {
+            console.log('PRODUCTION: Redirecting HTTP to HTTPS');
+        });
     } else {
         app.listen(PORT, () => {
             console.log(`DEV: Server running on port ${HOST}:${PORT}/`);
