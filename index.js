@@ -12,7 +12,8 @@ const fs = require('fs');
 const app = express();
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const PORT = IS_PRODUCTION ? 443 : 80;
+const PORT = process.env.PORT;
+const HOST = process.env.HOST;
 
 app.use(express.json());
 app.use(cors());
@@ -125,7 +126,8 @@ app.post('/register', async (req, res) => {
         return;
     }
     
-    MailAgent.sendMail('habibaina29@gmail.com', '[Action Required] RotMGArtMaker Verify your email', `Dear <b>${username}</b>,<br/><br/>Please verify your new account by clicking the link below:<br/><br/><a href="http://localhost:8080/verify?&id=${tokenResult.token}" target="_blank">Click here to verify your email address</a><br/><br/>`);
+    MailAgent.sendMail(email, '[Action Required] RotMGArtMaker Verify your email', 
+        `Dear <b>${username}</b>,<br/><br/>Please verify your new account by clicking the link below:<br/><br/><a href="${HOST}/verify?&id=${tokenResult.token}" target="_blank">Click here to verify your email address</a><br/><br/>`);
     
     res.setHeader('Set-Cookie', `token=${loginResult.token}; Secure; HttpOnly; SameSite=Strict`);
     res.status(200).send(loginResult);
@@ -154,7 +156,7 @@ app.get('/reset-password', (req, res) => {
         });
     } else {
         app.listen(PORT, () => {
-            console.log(`DEV: Server running on port http://localhost:${PORT}/`);
+            console.log(`DEV: Server running on port ${HOST}:${PORT}/`);
         });
     }
 })();

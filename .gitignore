@@ -135,3 +135,6 @@ dist
 *.crt
 *.csr
 *.ca-bundle
+
+# sql
+*.sql
