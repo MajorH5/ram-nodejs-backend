@@ -1,16 +1,15 @@
+const dotenv = require('dotenv'); dotenv.config();
+
 const UserDatabase = require('./lib/users/userDatabase.js');
 const Database = require('./lib/misc/database.js');
 const MailAgent = require('./lib/misc/mailAgent.js');
 const Verifier = require('./lib/misc/verifier.js');
 
 const express = require('express');
-const dotenv = require('dotenv');
 const https = require('https');
 const cors = require('cors');
 const fs = require('fs');
 const app = express();
-
-dotenv.config();
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const PORT = IS_PRODUCTION ? 443 : 80;
@@ -155,7 +154,7 @@ app.get('/reset-password', (req, res) => {
         });
     } else {
         app.listen(PORT, () => {
-            console.log(`DEV: Server running on port ${PORT}`);
+            console.log(`DEV: Server running on port http://localhost:${PORT}/`);
         });
     }
 })();
