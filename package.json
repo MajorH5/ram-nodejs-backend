@@ -4,7 +4,8 @@
   "description": "NodeJS Backend server for RotMG Art Maker Web Application",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "latest": "git submodule update --remote && git pull --recurse-submodules && npm install"
   },
   "repository": {
     "type": "git",
