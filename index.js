@@ -155,7 +155,7 @@ app.post('/register', async (req, res) => {
     }
     
     const contents = VERIFY_EMAIL
-        .replace('[[[LINK]]]', `${HOST}/reset-password?&tst=${loginResult.token}`)
+        .replace('[[[LINK]]]', `${HOST}/verify?id=${loginResult.token}`)
         .replace('[[[USERNAME]]]', username)
         .replace('[[[DURATION]]]', '1 day');
     
