@@ -1,5 +1,8 @@
+-- delete posts table if it exists
+DROP TABLE IF EXISTS rotmg_artmaker_db.posts;
 -- delete users table if it exists
 DROP TABLE IF EXISTS rotmg_artmaker_db.users;
+
 /* create users table */
 CREATE TABLE rotmg_artmaker_db.users (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -17,8 +20,6 @@ CREATE TABLE rotmg_artmaker_db.users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- delete posts table if it exists
-DROP TABLE IF EXISTS rotmg_artmaker_db.posts;
 /* create posts table */
 CREATE TABLE rotmg_artmaker_db.posts (
     id INT AUTO_INCREMENT PRIMARY KEY,
