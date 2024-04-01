@@ -15,6 +15,9 @@ const cors = require('cors');
 const fs = require('fs');
 const app = express();
 
+const VERIFY_EMAIL = fs.readFileSync('./verify.email', 'utf8');
+const RESET_EMAIL = fs.readFileSync('./reset.email', 'utf8');
+
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const PORT = process.env.PORT;
 const HOST = process.env.HOST;
@@ -151,9 +154,13 @@ app.post('/register', async (req, res) => {
         return;
     }
     
-    MailAgent.sendMail(email, '[Action Required] RotMGArtMaker Verify your email', 
-        `Dear <b>${username}</b>,<br/><br/>Please verify your new account by clicking the link below:<br/><br/><a href="${HOST}/verify?&id=${tokenResult.token}" target="_blank">Click here to verify your email address</a><br/><br/>`);
+    const contents = VERIFY_EMAIL
+        .replace('[[[LINK]]]', `${HOST}/reset-password?&tst=${loginResult.token}`)
+        .replace('[[[USERNAME]]]', username)
+        .replace('[[[DURATION]]]', '1 day');
     
+    MailAgent.sendMail(email, '[Action Required] RotMGArtMaker Verify your email', contents);
+
     res.setHeader('Set-Cookie', `token=${loginResult.token}; Secure; HttpOnly; SameSite=Strict`);
     res.status(200).send(loginResult);
 });
@@ -173,14 +180,21 @@ app.post('/reset-password', async (req, res) => {
         const noteResult = await UserDatabase.notePasswordReset(email);
 
         if (noteResult.error) {
-            res.status(400).send({ message: 'Too many attempts, please try again later' });
+            res.status(400).send({ error: 'An unknown error occured, try again later' });
             return;
         }
 
-        MailAgent.sendMail(email, '[Action Required] RotMGArtMaker Reset your password',
-            `Dear <b>${userResult.username}</b>,<br/><br/>Please reset your password by clicking the link below:<br/><br/><a href="${HOST}?tst=${result.token}" target="_blank">Click here to reset your password</a><br/><br/>`);
-    }
+        const contents = RESET_EMAIL
+            .replace('[[[LINK]]]', `${HOST}?tst=${result.token}`)
+            .replace('[[[USERNAME]]]', userResult.username)
+            .replace('[[[DURATION]]]', '1 day');
 
+        MailAgent.sendMail(email, '[Action Required] RotMGArtMaker Reset your password', contents);
+    } else if (!result.error && !userResult.error && !canReset) {
+        res.status(400).send({ message: 'Too many attempts, please try again later' });
+        return;
+    }
+ 
     res.status(200).send({ message: 'Sent!' });
 });
 
@@ -260,15 +274,20 @@ app.post('/resend-verification', async (req, res) => {
         return;
     }
 
-    const tokenResult = await UserDatabase.createVerificationToken(userResult.email);
+    const tokenResult = await UserDatabase.createVerificationToken(userResult.details.email);
 
     if (tokenResult.error) {
         res.status(400).send({ error: tokenResult.error });
         return;
     }
+    
+    const contents = VERIFY_EMAIL
+        .replace('[[[LINK]]]', `${HOST}/verify?id=${tokenResult.token}`)
+        .replace('[[[USERNAME]]]', userResult.details.username)
+        .replace('[[[DURATION]]]', '1 day');
 
-    MailAgent.sendMail(userResult.email, '[Action Required] RotMGArtMaker Verify your email',
-        `Dear <b>${userResult.username}</b>,<br/><br/>Please verify your new account by clicking the link below:<br/><br/><a href="${HOST}/verify?&id=${tokenResult.token}" target="_blank">Click here to verify your email address</a><br/><br/>`);
+    MailAgent.sendMail(userResult.details.email, '[Action Required] RotMGArtMaker Verify your email', contents);
+
     res.status(200).send({ message: 'Verification email sent' });
 });
 
