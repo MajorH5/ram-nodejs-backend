@@ -1,6 +1,7 @@
 const dotenv = require('dotenv'); dotenv.config();
 
 const UserDatabase = require('./lib/users/userDatabase.js');
+const PostDatabase = require('./lib/misc/postDatabase.js');
 const Database = require('./lib/misc/database.js');
 const MailAgent = require('./lib/misc/mailAgent.js');
 const Verifier = require('./lib/misc/verifier.js');
@@ -137,8 +138,194 @@ app.get('/forgot-password', (req, res) => {
 
 });
 
-app.get('/reset-password', (req, res) => {
+app.post('/reset-password', async (req, res) => {
+    const { token } = req.body;
+
+    const userResult = await UserDatabase.getUserByToken(token);
+
+    if (userResult.error) {
+        res.status(400).send({ error: userResult.error });
+        return;
+    }
+
+    const result = await UserDatabase.createPasswordResetToken(userResult.email);
+
+    if (result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    MailAgent.sendMail(userResult.email, '[Action Required] RotMGArtMaker Reset your password',
+        `Dear <b>${userResult.username}</b>,<br/><br/>Please reset your password by clicking the link below:<br/><br/><a href="${HOST}/reset-password?&id=${result.token}" target="_blank">Click here to reset your password</a><br/><br/>`);
+    res.status(200).send({ message: 'Password reset email sent' });
+});
+
+app.post('/change-password', async (req, res) => {
+    const { token, currentPassword, newPassword } = req.body;
+
+    const validationResults = [
+        Verifier.validatePassword(currentPassword),
+        Verifier.validatePassword(newPassword)
+    ];
+
+    const errors = validationResults.filter(result => result !== true);
+
+    if (errors.length > 0) {
+        res.status(400).send({ error: errors[0] });
+        return;
+    }
+
+    const userResult = await UserDatabase.getUserByToken(token);
+
+    if (userResult.error) {
+        res.status(400).send({ error: userResult.error });
+        return;
+    }
+
+    const result = await UserDatabase.changePassword(token, currentPassword, newPassword);
+
+    if (result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.status(200).send({ message: 'Password changed successfully' });
+});
+
+app.post('/resend-verification', async (req, res) => {
+    const { token } = req.body;
+
+    const userResult = await UserDatabase.getUserByToken(token);
+
+    if (userResult.error) {
+        res.status(400).send({ error: userResult.error });
+        return;
+    }
+
+    const tokenResult = await UserDatabase.createVerificationToken(userResult.email);
+
+    if (tokenResult.error) {
+        res.status(400).send({ error: tokenResult.error });
+        return;
+    }
+
+    MailAgent.sendMail(userResult.email, '[Action Required] RotMGArtMaker Verify your email',
+        `Dear <b>${userResult.username}</b>,<br/><br/>Please verify your new account by clicking the link below:<br/><br/><a href="${HOST}/verify?&id=${tokenResult.token}" target="_blank">Click here to verify your email address</a><br/><br/>`);
+    res.status(200).send({ message: 'Verification email sent' });
+});
+
+app.post('/create-post', async (req, res) => {
+    const { name, tags, image, type, isAnimated, token } = req.body;
     
+    const validationResults = [
+        Verifier.validatePostName(name),
+        Verifier.validateTags(tags),
+        Verifier.validateImage(image, isAnimated),
+        Verifier.validatePostType(type)
+    ];
+
+    const errors = validationResults.filter(result => result !== true);
+
+    if (errors.length > 0) {
+        res.status(400).send({ error: errors[0] });
+        return;
+    }
+
+    const userResult = await UserDatabase.getUserByToken(token);
+
+    if (userResult.error) {
+        res.status(400).send({ error: userResult.error });
+        return;
+    }
+
+    const result = await PostDatabase.createPost(userResult.id, name, tags, image, type);
+
+    if (result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.status(200).send({ message: 'Post created successfully' });
+});
+
+app.post('/delete-post', async (req, res) => {
+    const { postid, token } = req.body;
+
+    const validationResults = [
+        Verifier.validatePostId(postid),
+        Verifier.validateToken(token)
+    ];
+
+    const errors = validationResults.filter(result => result !== true);
+
+    if (errors.length > 0) {
+        res.status(400).send({ error: errors[0] });
+        return;
+    }
+
+    const userResult = await UserDatabase.getUserByToken(token);
+
+    if (userResult.error) {
+        res.status(400).send({ error: userResult.error });
+        return;
+    }
+
+    const postResult = await PostDatabase.getPost(postid);
+
+    if (postResult.error) {
+        res.status(400).send({ error: postResult.error });
+        return;
+    }
+
+    if (postResult.user_id !== userResult.userId) {
+        res.status(400).send({ error: 'Unauthorized' });
+        return;
+    }
+
+    const deleteResult = await PostDatabase.deletePost(postid);
+
+    if (deleteResult.error) {
+        res.status(400).send({ error: deleteResult.error });
+        return;
+    }
+
+    res.status(200).send({ message: 'Post deleted successfully' });
+});
+
+app.post('/get-posts', async(req, res) => {
+    const { mineOnly, tags, type, pageIndex, token } = req.body;
+    
+    if (typeof mineOnly !== 'boolean' || typeof pageIndex !== 'number' || !Array.isArray(tags) || typeof type !== 'string' || (token && typeof token !== 'string') || pageIndex < 0) {
+        res.status(400).send({ error: 'Invalid query parameters' });
+        return;
+    }
+
+    if (mineOnly) {
+        const userResult = await UserDatabase.getUserByToken(token);
+
+        if (userResult.error) {
+            res.status(400).send({ error: userResult.error });
+            return;
+        }
+
+        const result = await PostDatabase.searchUserPosts(userResult.id, tags, 0);
+
+        if (result.error) {
+            res.status(400).send({ error: result.error });
+            return;
+        }
+
+        res.status(200).send(result);
+    } else {
+        const result = await PostDatabase.searchAllPosts(tags, type, pageIndex);
+
+        if (result.error) {
+            res.status(400).send({ error: result.error });
+            return;
+        }
+
+        res.status(200).send(result);
+    }
 });
 
 (async function () {

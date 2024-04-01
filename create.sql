@@ -9,6 +9,9 @@ CREATE TABLE rotmg_artmaker_db.users (
     verified BOOLEAN DEFAULT FALSE,
     isAdmin BOOLEAN DEFAULT FALSE,
     verificationToken VARCHAR(1024),
+    lastVerificationRequest TIMESTAMP,
+    passwordResetToken VARCHAR(1024),
+    lastResetRequest TIMESTAMP,
     jwtToken VARCHAR(1024),
     ip VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -16,4 +19,15 @@ CREATE TABLE rotmg_artmaker_db.users (
 
 -- delete posts table if it exists
 DROP TABLE IF EXISTS rotmg_artmaker_db.posts;
-/* create posts table */;
+/* create posts table */
+CREATE TABLE rotmg_artmaker_db.posts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100),
+    tags TEXT(1024),
+    image TEXT(65535),
+    animated BOOLEAN DEFAULT FALSE,
+    type ENUM('Items', 'Entities', 'Tiles', 'Objects', 'Misc'),
+    user_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
