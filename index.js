@@ -6,6 +6,9 @@ const Database = require('./lib/misc/database.js');
 const MailAgent = require('./lib/misc/mailAgent.js');
 const Verifier = require('./lib/misc/verifier.js');
 
+const uglyify = require('uglify-js');
+const minify = require('express-minify');
+const jwt = require('jsonwebtoken');
 const express = require('express');
 const https = require('https');
 const cors = require('cors');
@@ -18,6 +21,27 @@ const HOST = process.env.HOST;
 
 app.use(express.json());
 app.use(cors());
+
+if (IS_PRODUCTION) {
+    if (!fs.existsSync('./cache')) {
+        fs.mkdirSync('./cache');
+    } else {
+        fs.readdirSync('./cache').forEach(file => {
+            fs.unlinkSync(`./cache/${file}`);
+        });
+    }
+    app.use((req, res, next) => {
+        res.minifyOptions = res.minifyOptions || {};
+        res.minifyOptions.js = {
+            toplevel: true
+        };
+        next();
+    });
+    app.use(minify({
+        cache: './cache',
+        uglifyJsModule: uglyify,
+    }));
+}
 app.use(express.static('RotMG-Art-Maker/public'));
 
 app.get('/verify', async (req, res) => {
@@ -139,25 +163,59 @@ app.get('/forgot-password', (req, res) => {
 });
 
 app.post('/reset-password', async (req, res) => {
-    const { token } = req.body;
+    const { email } = req.body;
 
-    const userResult = await UserDatabase.getUserByToken(token);
+    const result = await UserDatabase.login(email, null, true);
+    const userResult = await UserDatabase.getUserByEmail(email);
+    const canReset = await UserDatabase.canUserResetPassword(email);
 
-    if (userResult.error) {
-        res.status(400).send({ error: userResult.error });
-        return;
+    if (!result.error && !userResult.error && canReset) {
+        const noteResult = await UserDatabase.notePasswordReset(email);
+
+        if (noteResult.error) {
+            res.status(400).send({ message: 'Too many attempts, please try again later' });
+            return;
+        }
+
+        MailAgent.sendMail(email, '[Action Required] RotMGArtMaker Reset your password',
+            `Dear <b>${userResult.username}</b>,<br/><br/>Please reset your password by clicking the link below:<br/><br/><a href="${HOST}?tst=${result.token}" target="_blank">Click here to reset your password</a><br/><br/>`);
     }
 
-    const result = await UserDatabase.createPasswordResetToken(userResult.email);
+    res.status(200).send({ message: 'Sent!' });
+});
+
+app.post('/me', async (req, res) => {
+    const { token } = req.body;
+
+    let result = await UserDatabase.getUserByToken(token);
 
     if (result.error) {
         res.status(400).send({ error: result.error });
         return;
     }
 
-    MailAgent.sendMail(userResult.email, '[Action Required] RotMGArtMaker Reset your password',
-        `Dear <b>${userResult.username}</b>,<br/><br/>Please reset your password by clicking the link below:<br/><br/><a href="${HOST}/reset-password?&id=${result.token}" target="_blank">Click here to reset your password</a><br/><br/>`);
-    res.status(200).send({ message: 'Password reset email sent' });
+    let decoded;
+
+    try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (e) {
+        console.log(e);
+        res.status(400).send({ error: 'Invalid token' });
+        return;
+    }
+
+    if (decoded.isTemporary) {
+        const newUser = await UserDatabase.login(decoded.email, null);
+
+        if (newUser.error) {
+            res.status(400).send({ error: 'An unexpected error occured' });
+            return;
+        }
+
+        result = newUser;
+    }
+
+    res.status(200).send(result);
 });
 
 app.post('/change-password', async (req, res) => {

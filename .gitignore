@@ -138,3 +138,6 @@ dist
 
 # sql
 *.sql
+
+# cache
+/cache

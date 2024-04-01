@@ -13,7 +13,6 @@ CREATE TABLE rotmg_artmaker_db.users (
     isAdmin BOOLEAN DEFAULT FALSE,
     verificationToken VARCHAR(1024),
     lastVerificationRequest TIMESTAMP,
-    passwordResetToken VARCHAR(1024),
     lastResetRequest TIMESTAMP,
     jwtToken VARCHAR(1024),
     ip VARCHAR(255),
