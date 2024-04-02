@@ -15,6 +15,7 @@ CREATE TABLE rotmg_artmaker_db.users (
     lastVerificationRequest TIMESTAMP,
     lastResetRequest TIMESTAMP,
     jwtToken VARCHAR(1024),
+    banned BOOLEAN DEFAULT FALSE,
     ip VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

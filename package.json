@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "latest": "git submodule update --remote && git pull --recurse-submodules && npm install && sudo systemctl restart ram-backend.service && sudo systemctl status ram-backend.service && echo 'Server is live!'"
+    "latest": "git submodule update --remote && git pull --recurse-submodules && npm install && sudo systemctl restart ram-backend.service && echo 'Server is live!'"
   },
   "repository": {
     "type": "git",

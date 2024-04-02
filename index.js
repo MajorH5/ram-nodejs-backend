@@ -318,7 +318,7 @@ app.post('/create-post', async (req, res) => {
         return;
     }
 
-    const result = await PostDatabase.createPost(userResult.id, name, tags, image, type);
+    const result = await PostDatabase.createPost(userResult.details.userId, name, tags, image, type);
 
     if (result.error) {
         res.status(400).send({ error: result.error });
