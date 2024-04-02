@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RotMG Art Maker - Account Verification</title>
+    <title>RealmSpriter - Account Verification</title>
     <style>
         body {
             line-height: 1;
@@ -50,15 +50,15 @@
 
 <body>
     <div class="container">
-        <h1>RotMG Art Maker - Account Verification</h1>
+        <h1>RealmSpriter - Account Verification</h1>
         <p>Dear [[[USERNAME]]],</p>
-        <p>Thank you for registering an account with RotMG Art Maker. To complete the registration process and verify your account, please use the following verification link:</p>
+        <p>Thank you for registering an account with RealmSpriter. To complete the registration process and verify your account, please use the following verification link:</p>
         <div class="code-container">
             <a class="verification-code" href="[[[LINK]]]" target="_blank">Verify my account</a>
         </div>
         <p class="note">Note: This verification link is valid for [[[DURATION]]]. If you did not request this verification or if you believe this email was sent in error, please disregard it.</p>
-        <p>If you have any questions or need further assistance, please contact us at admin@rotmgartmaker.com.</p>
-        <p>Thank you,<br>RotMG Art Maker Team</p>
+        <p>If you have any questions or need further assistance, please contact us at admin@realmspriter.com.</p>
+        <p>Thank you,<br>RealmSpriter Team</p>
     </div>
 </body>
 

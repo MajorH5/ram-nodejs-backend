@@ -1,7 +1,7 @@
 {
   "name": "ram-nodejs-backend",
   "version": "1.0.0",
-  "description": "NodeJS Backend server for RotMG Art Maker Web Application",
+  "description": "NodeJS Backend server for RealmSpriter Web Application",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

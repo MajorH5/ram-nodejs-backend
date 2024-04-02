@@ -45,7 +45,7 @@ if (IS_PRODUCTION) {
         uglifyJsModule: uglyify,
     }));
 }
-app.use(express.static('RotMG-Art-Maker/public'));
+app.use(express.static('RealmSpriter/public'));
 
 app.get('/verify', async (req, res) => {
     let { id } = req.query;
@@ -159,7 +159,7 @@ app.post('/register', async (req, res) => {
         .replace('[[[USERNAME]]]', username)
         .replace('[[[DURATION]]]', '1 day');
     
-    MailAgent.sendMail(email, '[Action Required] RotMGArtMaker Verify your email', contents);
+    MailAgent.sendMail(email, '[Action Required] RealmSpriter Verify your email', contents);
 
     res.setHeader('Set-Cookie', `token=${loginResult.token}; Secure; HttpOnly; SameSite=Strict`);
     res.status(200).send(loginResult);
@@ -189,7 +189,7 @@ app.post('/reset-password', async (req, res) => {
             .replace('[[[USERNAME]]]', userResult.username)
             .replace('[[[DURATION]]]', '1 day');
 
-        MailAgent.sendMail(email, '[Action Required] RotMGArtMaker Reset your password', contents);
+        MailAgent.sendMail(email, '[Action Required] RealmSpriter Reset your password', contents);
     } else if (!result.error && !userResult.error && !canReset) {
         res.status(400).send({ message: 'Too many attempts, please try again later' });
         return;
@@ -286,7 +286,7 @@ app.post('/resend-verification', async (req, res) => {
         .replace('[[[USERNAME]]]', userResult.details.username)
         .replace('[[[DURATION]]]', '1 day');
 
-    MailAgent.sendMail(userResult.details.email, '[Action Required] RotMGArtMaker Verify your email', contents);
+    MailAgent.sendMail(userResult.details.email, '[Action Required] RealmSpriter Verify your email', contents);
 
     res.status(200).send({ message: 'Verification email sent' });
 });
