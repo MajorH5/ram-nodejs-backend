@@ -45,7 +45,7 @@ if (IS_PRODUCTION) {
         uglifyJsModule: uglyify,
     }));
 }
-app.use(express.static('RealmSpriter/public'));
+app.use(express.static('RotMG-Art-Maker/public'));
 
 app.get('/verify', async (req, res) => {
     let { id } = req.query;
