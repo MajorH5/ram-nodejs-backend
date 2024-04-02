@@ -17,6 +17,7 @@ const app = express();
 
 const VERIFY_EMAIL = fs.readFileSync('./verify.email', 'utf8');
 const RESET_EMAIL = fs.readFileSync('./reset.email', 'utf8');
+const FOROHFOR = fs.readFileSync('./404.html', 'utf8');
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const PORT = process.env.PORT;
@@ -45,7 +46,9 @@ if (IS_PRODUCTION) {
         uglifyJsModule: uglyify,
     }));
 }
-app.use(express.static('RotMG-Art-Maker/public'));
+app.use(express.static('RotMG-Art-Maker/public', {
+    extensions: ['html', 'htm']
+}));
 
 app.get('/verify', async (req, res) => {
     let { id } = req.query;
@@ -403,6 +406,10 @@ app.post('/get-posts', async(req, res) => {
 
         res.status(200).send(result);
     }
+});
+
+app.get('*', (req, res) => {
+    res.status(404).send(FOROHFOR);
 });
 
 (async function () {
