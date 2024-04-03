@@ -8,6 +8,7 @@ const Verifier = require('./lib/misc/verifier.js');
 
 const uglyify = require('uglify-js');
 const minify = require('express-minify');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const express = require('express');
 const https = require('https');
@@ -183,12 +184,23 @@ app.post('/reset-password', async (req, res) => {
         const noteResult = await UserDatabase.notePasswordReset(email);
 
         if (noteResult.error) {
+            console.log(noteResult.error);
+            res.status(400).send({ error: 'An unknown error occured, try again later' });
+            return;
+        }
+
+        // random code
+        const code = bcrypt.hashSync(Math.random().toString(), 10).replace(/\W/g, '').slice(0, 6);
+        const setResult = await UserDatabase.setResetPasswordCode(userResult.id, code);
+
+        if (setResult.error) {
+            console.log(setResult.error);
             res.status(400).send({ error: 'An unknown error occured, try again later' });
             return;
         }
 
         const contents = RESET_EMAIL
-            .replace('[[[LINK]]]', `${HOST}?tst=${result.token}`)
+            .replace('[[[LINK]]]', `${HOST}?tst=${result.token}&code=${code}`)
             .replace('[[[USERNAME]]]', userResult.username)
             .replace('[[[DURATION]]]', '1 day');
 
@@ -199,6 +211,49 @@ app.post('/reset-password', async (req, res) => {
     }
  
     res.status(200).send({ message: 'Sent!' });
+});
+
+app.post('/set-password', async (req, res) => {
+    const { token, code, password } = req.body;
+
+    const validationResults = [
+        Verifier.validatePassword(password)
+    ];
+
+    const errors = validationResults.filter(result => result !== true);
+
+    if (errors.length > 0) {
+        res.status(400).send({ error: errors[0] });
+        return;
+    }
+
+    const userResult = await UserDatabase.getUserByToken(token);
+
+    if (userResult.error) {
+        res.status(400).send({ error: userResult.error });
+        return;
+    }
+
+    const resetCode = await UserDatabase.getPasswordCode(userResult.details.userId);
+    
+    if (resetCode.error) {
+        res.status(400).send({ error: resetCode.error });
+        return;
+    }
+
+    if (resetCode.code !== code) {
+        res.status(400).send({ error: 'Invalid code' });
+        return;
+    }
+
+    const result = await UserDatabase.changePassword(token, null, password);
+
+    if (result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.status(200).send({ message: 'Password changed successfully' });
 });
 
 app.post('/me', async (req, res) => {
@@ -318,7 +373,7 @@ app.post('/create-post', async (req, res) => {
         return;
     }
 
-    const result = await PostDatabase.createPost(userResult.details.userId, name, tags, image, type);
+    const result = await PostDatabase.createPost(userResult.details.userId, name, tags, image, type, isAnimated);
 
     if (result.error) {
         res.status(400).send({ error: result.error });
@@ -331,15 +386,8 @@ app.post('/create-post', async (req, res) => {
 app.post('/delete-post', async (req, res) => {
     const { postid, token } = req.body;
 
-    const validationResults = [
-        Verifier.validatePostId(postid),
-        Verifier.validateToken(token)
-    ];
-
-    const errors = validationResults.filter(result => result !== true);
-
-    if (errors.length > 0) {
-        res.status(400).send({ error: errors[0] });
+    if (typeof postid !== 'number' || postid % 1 !== 0) {
+        res.status(400).send({ error: 'Invalid query parameters' });
         return;
     }
 
@@ -357,7 +405,7 @@ app.post('/delete-post', async (req, res) => {
         return;
     }
 
-    if (postResult.user_id !== userResult.userId) {
+    if (postResult.user_id !== userResult.details.userId) {
         res.status(400).send({ error: 'Unauthorized' });
         return;
     }
@@ -373,9 +421,16 @@ app.post('/delete-post', async (req, res) => {
 });
 
 app.post('/get-posts', async(req, res) => {
-    const { mineOnly, tags, type, pageIndex, token } = req.body;
+    const { mineOnly, tags, type, offset, token } = req.body;
     
-    if (typeof mineOnly !== 'boolean' || typeof pageIndex !== 'number' || !Array.isArray(tags) || typeof type !== 'string' || (token && typeof token !== 'string') || pageIndex < 0) {
+    if (
+        typeof mineOnly !== 'boolean' ||
+        typeof offset !== 'number' ||
+        offset % 1 !== 0 ||
+        !Array.isArray(tags) ||
+        typeof type !== 'string' ||
+        (token && typeof token !== 'string')
+    ) {
         res.status(400).send({ error: 'Invalid query parameters' });
         return;
     }
@@ -388,7 +443,7 @@ app.post('/get-posts', async(req, res) => {
             return;
         }
 
-        const result = await PostDatabase.searchUserPosts(userResult.id, tags, 0);
+        const result = await PostDatabase.searchUserPosts(userResult.details.userId, tags, type, offset);
 
         if (result.error) {
             res.status(400).send({ error: result.error });
@@ -397,7 +452,7 @@ app.post('/get-posts', async(req, res) => {
 
         res.status(200).send(result);
     } else {
-        const result = await PostDatabase.searchAllPosts(tags, type, pageIndex);
+        const result = await PostDatabase.searchAllPosts(tags, type, offset);
 
         if (result.error) {
             res.status(400).send({ error: result.error });
