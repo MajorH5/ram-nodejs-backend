@@ -14,6 +14,8 @@ const express = require('express');
 const https = require('https');
 const cors = require('cors');
 const fs = require('fs');
+var winston = require('winston'),
+    expressWinston = require('express-winston');
 const app = express();
 
 const VERIFY_EMAIL = fs.readFileSync('./verify.email', 'utf8');
@@ -46,7 +48,27 @@ if (IS_PRODUCTION) {
         cache: './cache',
         uglifyJsModule: uglyify,
     }));
+    app.use(expressWinston.logger({
+        transports: [
+            new winston.transports.Console()
+        ],
+        format: winston.format.combine(
+            winston.format.colorize(),
+            winston.format.simple() // Use simple format instead of JSON
+        ),
+        meta: false,
+        expressFormat: true,
+        colorize: true,
+        ignoreRoute: function (req, res) { 
+            return [
+                '/lib', '/assets', '/legal',
+                '/styles.css', '/index.js', '/favicon.ico',
+                '/robots.txt'
+            ].some(path => req.path.startsWith(path));
+         }
+    }));
 }
+
 app.use(express.static('RotMG-Art-Maker/public', {
     extensions: ['html', 'htm']
 }));

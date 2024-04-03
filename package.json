@@ -24,11 +24,13 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-minify": "^1.0.0",
+    "express-winston": "^4.2.0",
     "fs": "^0.0.1-security",
     "jsonwebtoken": "^9.0.2",
     "mysql": "^2.18.1",
     "nodemailer": "^6.9.13",
     "sqlstring": "^2.3.3",
-    "uglify-js": "^3.17.4"
+    "uglify-js": "^3.17.4",
+    "winston": "^3.13.0"
   }
 }
