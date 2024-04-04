@@ -54,9 +54,21 @@ if (IS_PRODUCTION) {
         ],
         format: winston.format.combine(
             winston.format.colorize(),
-            winston.format.simple() // Use simple format instead of JSON
+            winston.format.printf(info => {
+                const { message, meta } = info;
+                const ip = meta.req ? meta.req.ip : 'unknown';
+                return `${ip} - ${message}`;
+            })
         ),
-        meta: false,
+        dynamicMeta: function (req, res) {
+            return {
+                req: {
+                    ip: req.socket.remoteAddress,
+                    method: req.method,
+                    path: req.path
+                }
+            };
+        },
         expressFormat: true,
         colorize: true,
         ignoreRoute: function (req, res) { 
@@ -427,7 +439,7 @@ app.post('/delete-post', async (req, res) => {
         return;
     }
 
-    if (postResult.user_id !== userResult.details.userId) {
+    if (postResult.user_id !== userResult.details.userId && !userResult.details.isAdmin) {
         res.status(400).send({ error: 'Unauthorized' });
         return;
     }
