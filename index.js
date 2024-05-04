@@ -502,8 +502,6 @@ app.get('*', (req, res) => {
 });
 
 (async function () {
-    await Database.connect();
-
     if (IS_PRODUCTION) {
         const options = {
             key: fs.readFileSync('private.key'),
