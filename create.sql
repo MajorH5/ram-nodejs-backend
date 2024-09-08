@@ -91,7 +91,3 @@ CREATE TABLE rotmg_artmaker_db.notifications (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- Timestamp for when the notification was created
     FOREIGN KEY (user_id) REFERENCES rotmg_artmaker_db.users(id) ON DELETE CASCADE  -- Link to the users table
 );
-
-
-
-ADD COLUMN last_post_interaction DATETIME;
