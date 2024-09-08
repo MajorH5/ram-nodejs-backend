@@ -1,10 +1,12 @@
 const dotenv = require('dotenv'); dotenv.config();
 
+const CommentsDatabase = require('./lib/misc/commentsDatabase.js');
 const UserDatabase = require('./lib/users/userDatabase.js');
 const PostDatabase = require('./lib/misc/postDatabase.js');
 const Database = require('./lib/misc/database.js');
 const MailAgent = require('./lib/misc/mailAgent.js');
 const Verifier = require('./lib/misc/verifier.js');
+const NotificationsDatabase = require('./lib/misc/notificationsDatabase.js');
 
 const uglyify = require('uglify-js');
 const minify = require('express-minify');
@@ -16,6 +18,7 @@ const cors = require('cors');
 const fs = require('fs');
 var winston = require('winston'),
     expressWinston = require('express-winston');
+const ReportsDatabase = require('./lib/misc/reportsDatabase.js');
 const app = express();
 
 const VERIFY_EMAIL = fs.readFileSync('./verify.email', 'utf8');
@@ -454,6 +457,24 @@ app.post('/delete-post', async (req, res) => {
     res.status(200).send({ message: 'Post deleted successfully' });
 });
 
+app.post('/get-post', async (req, res) => {
+    const { postid } = req.body;
+
+    if (typeof postid !== 'number' || postid % 1 !== 0) {
+        res.status(400).send({ error: 'Invalid query parameters' });
+        return;
+    }
+
+    const result = await PostDatabase.getPost(postid);
+
+    if (result !== null && result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.status(200).send({result});
+});
+
 app.post('/get-posts', async(req, res) => {
     const { mineOnly, tags, type, offset, token } = req.body;
     
@@ -495,6 +516,443 @@ app.post('/get-posts', async(req, res) => {
 
         res.status(200).send(result);
     }
+});
+
+app.post('/report-post', async (req, res) => {
+    const { postid, reason, token } = req.body;
+
+    if (
+        typeof postid !== 'number' ||
+        postid % 1 !== 0 ||
+        !Array.isArray(reason) ||
+        typeof token !== 'string'
+    ) {
+        res.status(400).send({ error: 'Invalid query parameters' });
+        return;
+    }
+
+    const validateReason = Verifier.validateReportReason(reason);
+
+    if (validateReason !== true) {
+        res.status(400).send({ error: validateReason });
+        return;
+    }
+
+    const userResult = await UserDatabase.getUserByToken(token);
+
+    if (userResult.error) {
+        res.status(400).send({ error: userResult.error });
+        return;
+    }
+
+    const result = await ReportsDatabase.createReport(userResult.details.userId, postid, reason.join(', '), 'post');
+
+    if (result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.status(200).send({ message: 'Post reported successfully' });
+});
+
+app.post('/get-comments', async (req, res) => {
+    const { postId, offset, token } = req.body;
+
+    if (
+        typeof postId !== 'number' ||
+        postId % 1 !== 0 ||
+        postId < 1 ||
+        typeof offset !== 'number' ||
+        offset % 1 !== 0
+    ) {
+        res.status(400).send({ error: 'Invalid query parameters' });
+        return;
+    }
+
+    let result;
+
+    if (typeof token === 'string') {
+        const userResult = await UserDatabase.getUserByToken(token);
+
+        if (userResult.error) {
+            res.status(400).send({ error: userResult.error });
+            return;
+        }
+
+        result = await CommentsDatabase.getComments(postId, offset, userResult.details.userId);
+    } else {
+        result = await CommentsDatabase.getComments(postId, offset);
+    }
+
+    res.status(200).send(result);
+});
+
+app.post('/get-comment', async (req, res) => {
+    const { commentId, token } = req.body;
+
+    if (
+        typeof commentId !== 'number' ||
+        commentId % 1 !== 0 ||
+        commentId < 1 ||
+        (token && typeof token !== 'string')
+    ) {
+        res.status(400).send({ error: 'Invalid query parameters' });
+        return;
+    }
+    
+    let result;
+
+    if (typeof token === 'string') {
+        const userResult = await UserDatabase.getUserByToken(token);
+
+        if (userResult.error) {
+            res.status(400).send({ error: userResult.error });
+            return;
+        }
+
+        result = await CommentsDatabase.getComment(commentId, userResult.details.userId);
+    } else {
+        result = await CommentsDatabase.getComment(commentId);
+    }
+
+    if (result !== null && result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.status(200).send(result);
+});
+
+app.post('/get-reply-comments', async (req, res) => {
+    const { commentId, offset, token} = req.body;
+
+    if (
+        typeof commentId !== 'number' ||
+        commentId % 1 !== 0 ||
+        commentId < 1 ||
+        typeof offset !== 'number' ||
+        offset % 1 !== 0
+    ) {
+        res.status(400).send({ error: 'Invalid query parameters' });
+        return;
+    }
+
+    let result;
+
+    if (typeof token === 'string') {
+        const userResult = await UserDatabase.getUserByToken(token);
+
+        if (userResult.error) {
+            res.status(400).send({ error: userResult.error });
+            return;
+        }
+
+        result = await CommentsDatabase.getReplyComments(commentId, offset, userResult.details.userId);
+    } else {
+        result = await CommentsDatabase.getReplyComments(commentId, offset);
+    }
+
+    if (result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.status(200).send(result);
+});
+
+app.post('/create-comment', async (req, res) => {
+    const { postId, content, token } = req.body;
+
+    if (
+        typeof postId !== 'number' ||
+        postId % 1 !== 0 ||
+        postId < 1 ||
+        typeof content !== 'string' ||
+        typeof token !== 'string'
+    ) {
+        res.status(400).send({ error: 'Invalid query parameters' });
+        return;
+    }
+
+    const validateComment = Verifier.validateComment(content);
+
+    if (validateComment !== true) {
+        res.status(400).send({ error: validateComment });
+        return;
+    }
+
+    const userResult = await UserDatabase.getUserByToken(token);
+
+    if (userResult.error) {
+        res.status(400).send({ error: userResult.error });
+        return;
+    }
+
+    const result = await CommentsDatabase.createComment(postId, userResult.details.userId, content);
+
+    if (result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.status(200).send(result);
+});
+
+app.post('/reply-comment', async (req, res) => {
+    const { commentId, content, token } = req.body;
+
+    if (
+        typeof commentId !== 'number' ||
+        commentId % 1 !== 0 ||
+        commentId < 1 ||
+        typeof content !== 'string' ||
+        typeof token !== 'string'
+    ) {
+        res.status(400).send({ error: 'Invalid query parameters' });
+        return;
+    }
+
+    const validateComment = Verifier.validateComment(content);
+
+    if (validateComment !== true) {
+        res.status(400).send({ error: validateComment });
+        return;
+    }
+
+    const userResult = await UserDatabase.getUserByToken(token);
+
+    if (userResult.error) {
+        res.status(400).send({ error: userResult.error });
+        return;
+    }
+
+    const result = await CommentsDatabase.replyComment(commentId, userResult.details.userId, content);
+
+    if (result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.status(200).send(result);
+});
+
+app.post('/delete-comment', async (req, res) => {
+    const { commentId, token } = req.body;
+
+    if (
+        typeof commentId !== 'number' ||
+        commentId % 1 !== 0 ||
+        commentId < 1 ||
+        typeof token !== 'string'
+    ) {
+        res.status(400).send({ error: 'Invalid query parameters' });
+        return;
+    }
+
+    const userResult = await UserDatabase.getUserByToken(token);
+
+    if (userResult.error) {
+        res.status(400).send({ error: userResult.error });
+        return;
+    }
+
+    const deleteResult = await CommentsDatabase.deleteComment(commentId, userResult.details.userId);
+
+    if (deleteResult.error) {
+        res.status(400).send({ error: deleteResult.error });
+        return;
+    }
+
+    res.status(200).send({ message: 'Comment deleted successfully' });
+});
+
+app.post('/interact-comment', async (req, res) => {
+    const { commentId, status, token } = req.body;
+
+    if (
+        typeof commentId !== 'number' ||
+        commentId % 1 !== 0 ||
+        commentId < 1 ||
+        typeof status !== 'string' ||
+        typeof token !== 'string'
+    ) {
+        res.status(400).send({ error: 'Invalid query parameters' });
+        return;
+    }
+
+    const validateStatus = Verifier.validCommentStatus(status);
+
+    if (validateStatus !== true) {
+        res.status(400).send({ error: validateStatus });
+        return;
+    }
+
+    const userResult = await UserDatabase.getUserByToken(token);
+
+    if (userResult.error) {
+        res.status(400).send({ error: userResult.error });
+        return;
+    }
+
+    const result = await CommentsDatabase.updateLikeStatus(commentId, userResult.details.userId, status);
+
+    if (result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.status(200).send({ message: 'Comment updated successfully' });
+});
+
+app.post('/report-comment', async (req, res) => {
+    const { commentId, reason, token } = req.body;
+
+    if (
+        typeof commentId !== 'number' ||
+        commentId % 1 !== 0 ||
+        commentId < 1 ||
+        !Array.isArray(reason) ||
+        typeof token !== 'string'
+    ) {
+        res.status(400).send({ error: 'Invalid query parameters' });
+        return;
+    }
+
+    const validateReason = Verifier.validateReportReason(reason);
+
+    if (validateReason !== true) {
+        res.status(400).send({ error: validateReason });
+        return;
+    }
+
+    const userResult = await UserDatabase.getUserByToken(token);
+
+    if (userResult.error) {
+        res.status(400).send({ error: userResult.error });
+        return;
+    }
+
+    const result = await ReportsDatabase.createReport(userResult.details.userId, commentId, reason.join(', '), 'comment');
+
+    if (result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.status(200).send({ message: 'Comment reported successfully' });
+});
+
+app.post('/get-notifications', async (req, res) => {
+    const { token, offset } = req.body;
+
+    if (
+        typeof token !== 'string' ||
+        (offset && (typeof offset !== 'number' || offset % 1 !== 0))
+    ) {
+        res.status(400).send({ error: 'Invalid query parameters' });
+        return;
+    }
+
+    const userResult = await UserDatabase.getUserByToken(token);
+
+    if (userResult.error) {
+        res.status(400).send({ error: userResult.error });
+        return;
+    }
+
+    const result = await NotificationsDatabase.getNotifications(userResult.details.userId, offset);
+
+    if (result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.status(200).send(result);
+});
+
+app.post('/read-notification', async (req, res) => {
+    const { notificationId, token } = req.body;
+
+    if (
+        typeof notificationId !== 'number' ||
+        notificationId % 1 !== 0 ||
+        notificationId < 1 ||
+        typeof token !== 'string'
+    ) {
+        res.status(400).send({ error: 'Invalid query parameters' });
+        return;
+    }
+
+    const userResult = await UserDatabase.getUserByToken(token);
+
+    if (userResult.error) {
+        res.status(400).send({ error: userResult.error });
+        return;
+    }
+
+    const result = await NotificationsDatabase.readNotification(userResult.details.userId, notificationId);
+
+    if (result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.status(200).send({ message: 'Notification read successfully' });
+});
+
+app.post('/delete-notification', async (req, res) => {
+    const { notificationId, token } = req.body;
+
+    if (
+        typeof notificationId !== 'number' ||
+        notificationId % 1 !== 0 ||
+        notificationId < 1 ||
+        typeof token !== 'string'
+    ) {
+        res.status(400).send({ error: 'Invalid query parameters' });
+        return;
+    }
+
+    const userResult = await UserDatabase.getUserByToken(token);
+
+    if (userResult.error) {
+        res.status(400).send({ error: userResult.error });
+        return;
+    }
+
+    const result = await NotificationsDatabase.deleteNotification(userResult.details.userId, notificationId);
+
+    if (result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.status(200).send({ message: 'Notification deleted successfully' });
+});
+
+app.post('/delete-all-notifications', async (req, res) => {
+    const { token } = req.body;
+
+    if (typeof token !== 'string') {
+        res.status(400).send({ error: 'Invalid query parameters' });
+        return;
+    }
+
+    const userResult = await UserDatabase.getUserByToken(token);
+
+    if (userResult.error) {
+        res.status(400).send({ error: userResult.error });
+        return;
+    }
+
+    const result = await NotificationsDatabase.deleteAllNotifications(userResult.details.userId);
+
+    if (result.error) {
+        res.status(400).send({ error: result.error });
+        return;
+    }
+
+    res.status(200).send({ message: 'All notifications deleted successfully' });
 });
 
 app.get('*', (req, res) => {
