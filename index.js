@@ -130,7 +130,7 @@ app.post('/login', async (req, res) => {
         return;
     }
 
-    res.setHeader('Set-Cookie', `token=${result.token}; Secure; HttpOnly; SameSite=Strict`);
+    res.setHeader('Set-Cookie', `token=${result.token}; Secure; HttpOnly; SameSite=Strict; Max-Age=7776000`);
     res.status(200).send(result);
 });
 
@@ -202,7 +202,7 @@ app.post('/register', async (req, res) => {
     
     MailAgent.sendMail(email, '[Action Required] RealmSpriter Verify your email', contents);
 
-    res.setHeader('Set-Cookie', `token=${loginResult.token}; Secure; HttpOnly; SameSite=Strict`);
+    res.setHeader('Set-Cookie', `token=${loginResult.token}; Secure; HttpOnly; SameSite=Strict; Max-Age=7776000`);
     res.status(200).send(loginResult);
 });
 
