@@ -3,7 +3,6 @@ const dotenv = require('dotenv'); dotenv.config();
 const CommentsDatabase = require('./lib/misc/commentsDatabase.js');
 const UserDatabase = require('./lib/users/userDatabase.js');
 const PostDatabase = require('./lib/misc/postDatabase.js');
-const Database = require('./lib/misc/database.js');
 const MailAgent = require('./lib/misc/mailAgent.js');
 const Verifier = require('./lib/misc/verifier.js');
 const NotificationsDatabase = require('./lib/misc/notificationsDatabase.js');
@@ -21,9 +20,9 @@ var winston = require('winston'),
 const ReportsDatabase = require('./lib/misc/reportsDatabase.js');
 const app = express();
 
-const VERIFY_EMAIL = fs.readFileSync('./verify.email', 'utf8');
-const RESET_EMAIL = fs.readFileSync('./reset.email', 'utf8');
-const FOROHFOR = fs.readFileSync('./404.html', 'utf8');
+const VERIFY_EMAIL = fs.readFileSync('./resources/verify.email', 'utf8');
+const RESET_EMAIL = fs.readFileSync('./resources/reset.email', 'utf8');
+const FOROHFOR = fs.readFileSync('./resources/404.html', 'utf8');
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const PORT = process.env.PORT;
